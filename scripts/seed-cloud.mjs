@@ -2,52 +2,45 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.join(__dirname, "..", ".env.local");
-const roomsPath = path.join(__dirname, "..", "data", "rooms.json");
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const envPath = path.join(root, ".env.local");
+const roomsPath = path.join(root, "data", "rooms.json");
 
-// Muat .env.local sederhana jika belum ada di process.env
 if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, "utf8");
-  envContent.split("\n").forEach((line) => {
+  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
     const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith("#")) {
-      const [key, ...vals] = trimmed.split("=");
-      if (key && vals.length > 0 && !process.env[key.trim()]) {
-        process.env[key.trim()] = vals.join("=").trim().replace(/^["']|["']$/g, "");
-      }
-    }
-  });
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const separator = trimmed.indexOf("=");
+    if (separator < 1) continue;
+    const key = trimmed.slice(0, separator).trim();
+    const value = trimmed.slice(separator + 1).trim().replace(/^["']|["']$/g, "");
+    if (!process.env[key]) process.env[key] = value;
+  }
 }
 
-const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-
-if (!url || !token) {
-  console.log("❌ Belum ada konfigurasi cloud di .env.local.");
-  console.log("Pastikan Anda menambahkan:");
-  console.log("UPSTASH_REDIS_REST_URL=https://...");
-  console.log("UPSTASH_REDIS_REST_TOKEN=...");
-  console.log("\nAnda bisa membuat database Redis gratis di: https://upstash.com (Free 10.000 request/hari, tanpa kartu kredit).");
+const url = process.env.SUPABASE_URL;
+const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!url || !key) {
+  console.error("SUPABASE_URL dan SUPABASE_SECRET_KEY wajib diisi di .env.local.");
   process.exit(1);
 }
 
 const data = JSON.parse(fs.readFileSync(roomsPath, "utf8"));
-console.log("Mengirim data awal kamar ke Cloud Database Upstash Redis...");
-
-const res = await fetch(`${url.replace(/\/$/, "")}/set/deluxe_kost_rooms`, {
+const updatedAt = new Date().toISOString();
+const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/rooms?on_conflict=id`, {
   method: "POST",
   headers: {
-    Authorization: `Bearer ${token}`,
+    apikey: key,
+    Authorization: `Bearer ${key}`,
     "Content-Type": "application/json",
+    Prefer: "resolution=merge-duplicates,return=minimal",
   },
-  body: JSON.stringify(JSON.stringify(data)),
+  body: JSON.stringify(data.rooms.map((room) => ({ ...room, updated_at: updatedAt }))),
 });
 
-if (res.ok) {
-  console.log("✅ Berhasil! Data status kamar telah tersimpan di Cloud Database.");
-} else {
-  console.error("❌ Gagal menyimpan ke cloud. HTTP Status:", res.status);
-  const text = await res.text();
-  console.error(text);
+if (!response.ok) {
+  console.error(`Gagal menyimpan data ke Supabase (HTTP ${response.status}):`, await response.text());
+  process.exit(1);
 }
+
+console.log("Data awal kamar berhasil disimpan ke Supabase.");

@@ -11,6 +11,7 @@ import {
   getWhatsAppTypeUrl,
   getWhatsAppUrl,
 } from "@/lib/config";
+import { subscribeToRoomChanges } from "@/lib/supabase-browser";
 
 type Room = {
   id: number;
@@ -196,12 +197,14 @@ export default function Home() {
     }
 
     refreshRooms();
+    const unsubscribe = subscribeToRoomChanges(refreshRooms);
     const interval = window.setInterval(refreshRooms, 30_000);
     window.addEventListener("focus", refreshRooms);
     document.addEventListener("visibilitychange", refreshRooms);
 
     return () => {
       active = false;
+      unsubscribe?.();
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshRooms);
       document.removeEventListener("visibilitychange", refreshRooms);

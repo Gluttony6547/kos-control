@@ -23,10 +23,10 @@ Website profil hunian dan panel manajemen ketersediaan kamar untuk **De Luxe Kos
    - Tombol filter kamar (Semua, Kosong, Penuh) dan tombol batal / reset perubahan.
    - Toast alert konfirmasi saat data berhasil tersimpan.
 
-3. **Cloud Storage Adapter (Siap Publish)**:
-   - Mendukung penyimpanan **Cloud Database Upstash Redis / Vercel KV** (100% gratis tanpa kartu kredit).
-   - Otomatis menggunakan Cloud jika variabel `.env` diisi, dan tetap menggunakan file lokal `data/rooms.json` saat dijalankan offline/lokal.
-   - Pada Vercel, konfigurasi cloud wajib diisi agar perubahan status kamar persisten di semua instance. Jika penyimpanan cloud gagal, panel akan menampilkan error dan tidak mengklaim perubahan berhasil.
+3. **Cloud Database Supabase (Siap Publish)**:
+   - Status kamar disimpan di PostgreSQL Supabase dan disiarkan melalui Supabase Realtime.
+   - Halaman publik dan dashboard admin menerima perubahan tanpa menunggu polling.
+   - File lokal hanya digunakan saat kredensial Supabase belum dikonfigurasi.
 
 ---
 
@@ -68,28 +68,17 @@ Pengujian mencakup:
 
 Ketika Anda siap mempublikasikan website ke internet:
 
-### 1. Buat Database Cloud Gratis (Upstash Redis)
-1. Kunjungi [https://upstash.com](https://upstash.com) dan daftar akun gratis.
-2. Klik **Create Database** (pilih Serverless Redis, lokasi terdekat misal Singapore).
-3. Di halaman detail database, scroll ke bagian **REST API**.
-4. Salin:
-   - `UPSTASH_REDIS_REST_URL`
-   - `UPSTASH_REDIS_REST_TOKEN`
+### 1. Siapkan Supabase
+1. Buka **SQL Editor** project Supabase Anda dan jalankan [`supabase/schema.sql`](./supabase/schema.sql).
+2. Tambahkan `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, dan `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ke `.env.local` serta Vercel.
 
-### 2. Pindahkan Data Awal ke Cloud
-Jalankan perintah ini di komputer lokal (pastikan kedua variabel di atas sudah ada di `.env.local`):
-```bash
-node scripts/seed-cloud.mjs
-```
-
-### 3. Deploy ke Vercel
+### 2. Deploy ke Vercel
 1. Upload folder proyek ke GitHub / GitLab.
 2. Di dashboard [Vercel](https://vercel.com), klik **New Project** lalu impor repositori ini.
 3. Tambahkan **Environment Variables** berikut di pengaturan Vercel:
    - `ADMIN_PASSWORD`: Password panel admin Anda.
    - `ADMIN_SESSION_SECRET`: Kunci acak rahasia.
-   - `UPSTASH_REDIS_REST_URL`: URL **REST API** dari detail database Upstash (bukan URL halaman console).
-   - `UPSTASH_REDIS_REST_TOKEN`: Token REST API dengan akses tulis (jangan gunakan read-only token).
-
-   Pastikan nama dan nilainya sama persis dengan yang diberikan Upstash. Setelah mengubah environment variable, lakukan redeploy agar konfigurasi aktif.
-4. Klik **Deploy**! Website dan panel admin langsung aktif dengan status kamar yang tersimpan aman di cloud.
+   - `SUPABASE_URL` dan `SUPABASE_SECRET_KEY`: Kredensial server Supabase.
+   - `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Kredensial browser untuk Realtime.
+   Setelah mengubah environment variable, lakukan redeploy agar konfigurasi aktif.
+4. Klik **Deploy**! Website dan panel admin langsung aktif dengan status kamar yang tersimpan aman di Supabase.

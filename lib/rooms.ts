@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export type Room = {
   id: number;
@@ -15,7 +16,6 @@ export type RoomsData = {
 
 export function isValidRooms(value: unknown): value is Room[] {
   if (!Array.isArray(value) || value.length !== 5) return false;
-
   return value.every((room, index) => {
     if (!room || typeof room !== "object") return false;
     const candidate = room as Partial<Room>;
@@ -29,7 +29,6 @@ export function isValidRooms(value: unknown): value is Room[] {
 }
 
 const DATA_PATH = path.join(process.cwd(), "data", "rooms.json");
-const CLOUD_STORAGE_KEY = "deluxe_kost_rooms";
 
 export class RoomStorageError extends Error {
   constructor(message: string, public readonly status?: number) {
@@ -38,14 +37,40 @@ export class RoomStorageError extends Error {
   }
 }
 
-// Helper untuk membaca dari file lokal
+type SupabaseRoom = Room & { updated_at: string };
+
+function getSupabaseServer(): SupabaseClient | null {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return url && key ? createClient(url, key, { auth: { persistSession: false } }) : null;
+}
+
+function toRoomsData(rows: SupabaseRoom[]): RoomsData {
+  const lastUpdated = rows.reduce((latest, row) => {
+    return row.updated_at > latest ? row.updated_at : latest;
+  }, "");
+
+  return {
+    lastUpdated: lastUpdated ? lastUpdated.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    rooms: rows.map(toPublicRoom),
+  };
+}
+
+function toPublicRoom(row: SupabaseRoom): Room {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    status: row.status,
+  };
+}
+
 async function getLocalRooms(): Promise<RoomsData> {
   try {
     const fileContent = await fs.readFile(DATA_PATH, "utf8");
-    return JSON.parse(fileContent);
+    return JSON.parse(fileContent) as RoomsData;
   } catch (error) {
     console.error("[Local Storage] Gagal membaca rooms.json:", error);
-    // Fallback data bawaan jika file tidak ada
     return {
       lastUpdated: new Date().toISOString().slice(0, 10),
       rooms: [
@@ -59,114 +84,57 @@ async function getLocalRooms(): Promise<RoomsData> {
   }
 }
 
-// Helper untuk menyimpan ke file lokal
 async function saveLocalRooms(data: RoomsData): Promise<void> {
   try {
     await fs.writeFile(DATA_PATH, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-  } catch (err) {
-    // Pada serverless (seperti Vercel read-only filesystem), penulisan disk lokal akan diabaikan jika cloud aktif
-    console.warn("[Local Storage] Catatan: Penyimpanan disk lokal tidak dapat ditulis (wajar pada serverless/Vercel).", err);
+  } catch (error) {
+    console.warn("[Local Storage] Tidak dapat menulis filesystem lokal:", error);
   }
 }
 
-// ----------------------------------------------------
-// Upstash Redis / Vercel KV REST Client (Native Fetch)
-// ----------------------------------------------------
-function getUpstashConfig() {
-  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-  if (url && token) {
-    return { url: url.replace(/\/$/, ""), token };
-  }
-  return null;
-}
-
-async function getUpstashRooms(config: { url: string; token: string }): Promise<RoomsData | null> {
-  try {
-    const res = await fetch(`${config.url}/get/${CLOUD_STORAGE_KEY}`, {
-      headers: { Authorization: `Bearer ${config.token}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (!json.result) return null;
-
-    const data: RoomsData = typeof json.result === "string" ? JSON.parse(json.result) : json.result;
-    return data;
-  } catch (err) {
-    console.error("[Upstash Cloud] Error reading data:", err);
-    return null;
-  }
-}
-
-async function saveUpstashRooms(config: { url: string; token: string }, data: RoomsData): Promise<boolean> {
-  try {
-    const res = await fetch(`${config.url}/set/${encodeURIComponent(CLOUD_STORAGE_KEY)}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(JSON.stringify(data)),
-    });
-    if (!res.ok) {
-      console.error(`[Upstash Cloud] Gagal menyimpan data (HTTP ${res.status}).`);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("[Upstash Cloud] Error saving data:", err);
-    return false;
-  }
-}
-
-// ----------------------------------------------------
-// Public API: getRooms & saveRooms (Hybrid Adapter)
-// ----------------------------------------------------
 export async function getRooms(): Promise<RoomsData> {
-  const upstash = getUpstashConfig();
-  if (upstash) {
-    const cloudData = await getUpstashRooms(upstash);
-    if (cloudData && Array.isArray(cloudData.rooms) && cloudData.rooms.length > 0) {
-      return cloudData;
-    }
-  }
+  const supabase = getSupabaseServer();
+  if (!supabase) return getLocalRooms();
 
-  // Fallback ke penyimpanan lokal
-  return await getLocalRooms();
+  const { data, error } = await supabase
+    .from("rooms")
+    .select("id,name,type,status,updated_at")
+    .order("id", { ascending: true });
+
+  if (error) {
+    console.error("[Supabase] Gagal membaca rooms:", error);
+    throw new RoomStorageError("Database Supabase tidak dapat diakses.", 503);
+  }
+  if (!data || !isValidRooms(data.map(toPublicRoom))) {
+    throw new RoomStorageError("Data kamar di Supabase tidak valid.", 503);
+  }
+  return toRoomsData(data as SupabaseRoom[]);
 }
 
 export async function saveRooms(rooms: Room[]): Promise<RoomsData> {
-  const data: RoomsData = {
-    lastUpdated: new Date().toISOString().slice(0, 10),
-    rooms,
-  };
+  const updatedAt = new Date().toISOString();
+  const data: RoomsData = { lastUpdated: updatedAt.slice(0, 10), rooms };
+  const supabase = getSupabaseServer();
 
-  const upstash = getUpstashConfig();
-  if (upstash) {
-    const savedCloud = await saveUpstashRooms(upstash, data);
-    if (savedCloud) {
-      // Simpan lokal juga jika memungkinkan
-      await saveLocalRooms(data);
-      return data;
-    }
-
-    if (process.env.VERCEL) {
-      throw new RoomStorageError(
-        "Penyimpanan cloud kamar ditolak. Pastikan token Upstash memiliki akses tulis.",
-      );
-    }
-  } else if (process.env.VERCEL) {
-    throw new RoomStorageError(
-      "Cloud storage belum dikonfigurasi. Isi URL REST API dan token Upstash di Vercel.",
-    );
+  if (!supabase) {
+    await saveLocalRooms(data);
+    return data;
   }
 
-  // Simpan lokal
-  await saveLocalRooms(data);
-  return data;
+  const { data: savedRows, error } = await supabase
+    .from("rooms")
+    .upsert(rooms.map((room) => ({ ...room, updated_at: updatedAt })), { onConflict: "id" })
+    .select("id,name,type,status,updated_at")
+    .order("id", { ascending: true });
+
+  if (error || !savedRows || !isValidRooms(savedRows.map(toPublicRoom))) {
+    console.error("[Supabase] Gagal menyimpan rooms:", error);
+    throw new RoomStorageError("Perubahan kamar belum tersimpan di Supabase.", 503);
+  }
+
+  return toRoomsData(savedRows as SupabaseRoom[]);
 }
 
 export function isCloudConfigured(): boolean {
-  return !!getUpstashConfig();
+  return Boolean(getSupabaseServer());
 }

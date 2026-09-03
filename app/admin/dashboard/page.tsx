@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { subscribeToRoomChanges } from "@/lib/supabase-browser";
 
 export type Room = {
   id: number;
@@ -66,6 +67,30 @@ export default function Dashboard() {
     if (!data || !originalData) return false;
     return JSON.stringify(data.rooms) !== JSON.stringify(originalData.rooms);
   }, [data, originalData]);
+
+  const isDirtyRef = useRef(false);
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshRooms = async () => {
+      if (isDirtyRef.current) return;
+      const response = await fetch("/api/rooms", { cache: "no-store" });
+      if (!response.ok || !active) return;
+      const roomsData: Payload = await response.json();
+      if (Array.isArray(roomsData.rooms)) {
+        setData(roomsData);
+        setOriginalData(roomsData);
+      }
+    };
+    const unsubscribe = subscribeToRoomChanges(refreshRooms);
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, []);
 
   // Quick stats
   const stats = useMemo(() => {
