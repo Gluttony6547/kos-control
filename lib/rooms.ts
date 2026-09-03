@@ -15,7 +15,6 @@ export type RoomsData = {
 
 export function isValidRooms(value: unknown): value is Room[] {
   if (!Array.isArray(value) || value.length !== 5) return false;
-
   return value.every((room, index) => {
     if (!room || typeof room !== "object") return false;
     const candidate = room as Partial<Room>;
@@ -28,9 +27,6 @@ export function isValidRooms(value: unknown): value is Room[] {
   });
 }
 
-const DATA_PATH = path.join(process.cwd(), "data", "rooms.json");
-const CLOUD_STORAGE_KEY = "deluxe_kost_rooms";
-
 export class RoomStorageError extends Error {
   constructor(message: string, public readonly status?: number) {
     super(message);
@@ -38,14 +34,15 @@ export class RoomStorageError extends Error {
   }
 }
 
-// Helper untuk membaca dari file lokal
+const DATA_PATH = path.join(process.cwd(), "data", "rooms.json");
+const SUPABASE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "room-data";
+const SUPABASE_OBJECT = "rooms.json";
+
 async function getLocalRooms(): Promise<RoomsData> {
   try {
-    const fileContent = await fs.readFile(DATA_PATH, "utf8");
-    return JSON.parse(fileContent);
+    return JSON.parse(await fs.readFile(DATA_PATH, "utf8")) as RoomsData;
   } catch (error) {
     console.error("[Local Storage] Gagal membaca rooms.json:", error);
-    // Fallback data bawaan jika file tidak ada
     return {
       lastUpdated: new Date().toISOString().slice(0, 10),
       rooms: [
@@ -59,114 +56,101 @@ async function getLocalRooms(): Promise<RoomsData> {
   }
 }
 
-// Helper untuk menyimpan ke file lokal
 async function saveLocalRooms(data: RoomsData): Promise<void> {
   try {
     await fs.writeFile(DATA_PATH, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-  } catch (err) {
-    // Pada serverless (seperti Vercel read-only filesystem), penulisan disk lokal akan diabaikan jika cloud aktif
-    console.warn("[Local Storage] Catatan: Penyimpanan disk lokal tidak dapat ditulis (wajar pada serverless/Vercel).", err);
+  } catch (error) {
+    console.warn("[Local Storage] Penyimpanan lokal tidak tersedia:", error);
   }
 }
 
-// ----------------------------------------------------
-// Upstash Redis / Vercel KV REST Client (Native Fetch)
-// ----------------------------------------------------
-function getUpstashConfig() {
-  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-  if (url && token) {
-    return { url: url.replace(/\/$/, ""), token };
-  }
-  return null;
+function getSupabaseConfig() {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return url && key ? { url: url.replace(/\/$/, ""), key } : null;
 }
 
-async function getUpstashRooms(config: { url: string; token: string }): Promise<RoomsData | null> {
+function headers(key: string): Record<string, string> {
+  return { Authorization: `Bearer ${key}`, apikey: key };
+}
+
+async function getSupabaseRooms(config: { url: string; key: string }): Promise<RoomsData | null> {
   try {
-    const res = await fetch(`${config.url}/get/${CLOUD_STORAGE_KEY}`, {
-      headers: { Authorization: `Bearer ${config.token}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (!json.result) return null;
-
-    const data: RoomsData = typeof json.result === "string" ? JSON.parse(json.result) : json.result;
-    return data;
-  } catch (err) {
-    console.error("[Upstash Cloud] Error reading data:", err);
+    const response = await fetch(
+      `${config.url}/storage/v1/object/${encodeURIComponent(SUPABASE_BUCKET)}/${SUPABASE_OBJECT}`,
+      { headers: headers(config.key), cache: "no-store" },
+    );
+    if (!response.ok) return null;
+    const data = (await response.json()) as RoomsData;
+    return isValidRooms(data.rooms) ? data : null;
+  } catch (error) {
+    console.error("[Supabase Storage] Gagal membaca data:", error);
     return null;
   }
 }
 
-async function saveUpstashRooms(config: { url: string; token: string }, data: RoomsData): Promise<boolean> {
-  try {
-    const res = await fetch(`${config.url}/set/${encodeURIComponent(CLOUD_STORAGE_KEY)}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(JSON.stringify(data)),
-    });
-    if (!res.ok) {
-      console.error(`[Upstash Cloud] Gagal menyimpan data (HTTP ${res.status}).`);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("[Upstash Cloud] Error saving data:", err);
-    return false;
+async function ensureSupabaseBucket(config: { url: string; key: string }): Promise<void> {
+  const response = await fetch(`${config.url}/storage/v1/bucket`, {
+    method: "POST",
+    headers: { ...headers(config.key), "Content-Type": "application/json" },
+    body: JSON.stringify({ id: SUPABASE_BUCKET, name: SUPABASE_BUCKET, public: false }),
+  });
+  if (!response.ok && response.status !== 409) {
+    throw new RoomStorageError(`Supabase bucket tidak dapat dibuat (HTTP ${response.status}).`, response.status);
   }
 }
 
-// ----------------------------------------------------
-// Public API: getRooms & saveRooms (Hybrid Adapter)
-// ----------------------------------------------------
-export async function getRooms(): Promise<RoomsData> {
-  const upstash = getUpstashConfig();
-  if (upstash) {
-    const cloudData = await getUpstashRooms(upstash);
-    if (cloudData && Array.isArray(cloudData.rooms) && cloudData.rooms.length > 0) {
-      return cloudData;
+async function saveSupabaseRooms(config: { url: string; key: string }, data: RoomsData): Promise<void> {
+  try {
+    await ensureSupabaseBucket(config);
+    const response = await fetch(
+      `${config.url}/storage/v1/object/${encodeURIComponent(SUPABASE_BUCKET)}/${SUPABASE_OBJECT}`,
+      {
+        method: "POST",
+        headers: {
+          ...headers(config.key),
+          "Content-Type": "application/json",
+          "x-upsert": "true",
+        },
+        body: JSON.stringify(data),
+      },
+    );
+    if (!response.ok) {
+      throw new RoomStorageError(`Supabase menolak penyimpanan data (HTTP ${response.status}).`, response.status);
     }
+  } catch (error) {
+    if (error instanceof RoomStorageError) throw error;
+    console.error("[Supabase Storage] Gagal menyimpan data:", error);
+    throw new RoomStorageError("Tidak dapat terhubung ke Supabase Storage.");
   }
+}
 
-  // Fallback ke penyimpanan lokal
-  return await getLocalRooms();
+export async function getRooms(): Promise<RoomsData> {
+  const supabase = getSupabaseConfig();
+  if (supabase) {
+    const cloudData = await getSupabaseRooms(supabase);
+    if (cloudData) return cloudData;
+  }
+  return getLocalRooms();
 }
 
 export async function saveRooms(rooms: Room[]): Promise<RoomsData> {
-  const data: RoomsData = {
-    lastUpdated: new Date().toISOString().slice(0, 10),
-    rooms,
-  };
-
-  const upstash = getUpstashConfig();
-  if (upstash) {
-    const savedCloud = await saveUpstashRooms(upstash, data);
-    if (savedCloud) {
-      // Simpan lokal juga jika memungkinkan
-      await saveLocalRooms(data);
-      return data;
-    }
-
-    if (process.env.VERCEL) {
-      throw new RoomStorageError(
-        "Penyimpanan cloud kamar ditolak. Pastikan token Upstash memiliki akses tulis.",
-      );
-    }
-  } else if (process.env.VERCEL) {
+  const data: RoomsData = { lastUpdated: new Date().toISOString().slice(0, 10), rooms };
+  const supabase = getSupabaseConfig();
+  if (supabase) {
+    await saveSupabaseRooms(supabase, data);
+    await saveLocalRooms(data);
+    return data;
+  }
+  if (process.env.VERCEL) {
     throw new RoomStorageError(
-      "Cloud storage belum dikonfigurasi. Isi URL REST API dan token Upstash di Vercel.",
+      "Supabase belum dikonfigurasi. Isi SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY di Vercel.",
     );
   }
-
-  // Simpan lokal
   await saveLocalRooms(data);
   return data;
 }
 
 export function isCloudConfigured(): boolean {
-  return !!getUpstashConfig();
+  return !!getSupabaseConfig();
 }

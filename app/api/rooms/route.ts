@@ -31,7 +31,7 @@ export async function PUT(request: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "Status kamar belum tersimpan. Periksa konfigurasi cloud storage.",
+            : "Status kamar belum tersimpan. Periksa konfigurasi Supabase Storage.",
       },
       { status: 503 }
     );

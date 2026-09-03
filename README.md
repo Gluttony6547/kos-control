@@ -24,7 +24,7 @@ Website profil hunian dan panel manajemen ketersediaan kamar untuk **De Luxe Kos
    - Toast alert konfirmasi saat data berhasil tersimpan.
 
 3. **Cloud Storage Adapter (Siap Publish)**:
-   - Mendukung penyimpanan **Cloud Database Upstash Redis / Vercel KV** (100% gratis tanpa kartu kredit).
+   - Menyimpan status kamar di object `rooms.json` pada bucket Supabase Storage.
    - Otomatis menggunakan Cloud jika variabel `.env` diisi, dan tetap menggunakan file lokal `data/rooms.json` saat dijalankan offline/lokal.
    - Pada Vercel, konfigurasi cloud wajib diisi agar perubahan status kamar persisten di semua instance. Jika penyimpanan cloud gagal, panel akan menampilkan error dan tidak mengklaim perubahan berhasil.
 
@@ -68,13 +68,10 @@ Pengujian mencakup:
 
 Ketika Anda siap mempublikasikan website ke internet:
 
-### 1. Buat Database Cloud Gratis (Upstash Redis)
-1. Kunjungi [https://upstash.com](https://upstash.com) dan daftar akun gratis.
-2. Klik **Create Database** (pilih Serverless Redis, lokasi terdekat misal Singapore).
-3. Di halaman detail database, scroll ke bagian **REST API**.
-4. Salin:
-   - `UPSTASH_REDIS_REST_URL`
-   - `UPSTASH_REDIS_REST_TOKEN`
+### 1. Siapkan Supabase Storage
+1. Buka dashboard project Supabase dan masuk ke menu **Storage**.
+2. Buat bucket private bernama `room-data`.
+3. Salin Project URL dan service role key dari pengaturan API.
 
 ### 2. Pindahkan Data Awal ke Cloud
 Jalankan perintah ini di komputer lokal (pastikan kedua variabel di atas sudah ada di `.env.local`):
@@ -88,8 +85,9 @@ node scripts/seed-cloud.mjs
 3. Tambahkan **Environment Variables** berikut di pengaturan Vercel:
    - `ADMIN_PASSWORD`: Password panel admin Anda.
    - `ADMIN_SESSION_SECRET`: Kunci acak rahasia.
-   - `UPSTASH_REDIS_REST_URL`: URL **REST API** dari detail database Upstash (bukan URL halaman console).
-   - `UPSTASH_REDIS_REST_TOKEN`: Token REST API dengan akses tulis (jangan gunakan read-only token).
+   - `SUPABASE_URL`: Project URL Supabase.
+   - `SUPABASE_SERVICE_ROLE_KEY`: service role key, hanya untuk server.
+   - `SUPABASE_STORAGE_BUCKET`: `room-data` (opsional).
 
-   Pastikan nama dan nilainya sama persis dengan yang diberikan Upstash. Setelah mengubah environment variable, lakukan redeploy agar konfigurasi aktif.
+   Jangan pernah menaruh service role key di variabel `NEXT_PUBLIC_*`. Setelah mengubah environment variable, lakukan redeploy agar konfigurasi aktif.
 4. Klik **Deploy**! Website dan panel admin langsung aktif dengan status kamar yang tersimpan aman di cloud.
