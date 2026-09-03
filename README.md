@@ -23,10 +23,17 @@ Website profil hunian dan panel manajemen ketersediaan kamar untuk **De Luxe Kos
    - Tombol filter kamar (Semua, Kosong, Penuh) dan tombol batal / reset perubahan.
    - Toast alert konfirmasi saat data berhasil tersimpan.
 
+<<<<<<< HEAD
 3. **Cloud Database Supabase (Siap Publish)**:
    - Status kamar disimpan di PostgreSQL Supabase dan disiarkan melalui Supabase Realtime.
    - Halaman publik dan dashboard admin menerima perubahan tanpa menunggu polling.
    - File lokal hanya digunakan saat kredensial Supabase belum dikonfigurasi.
+=======
+3. **Cloud Storage Adapter (Siap Publish)**:
+   - Menyimpan status kamar di object `rooms.json` pada bucket Supabase Storage.
+   - Otomatis menggunakan Cloud jika variabel `.env` diisi, dan tetap menggunakan file lokal `data/rooms.json` saat dijalankan offline/lokal.
+   - Pada Vercel, konfigurasi cloud wajib diisi agar perubahan status kamar persisten di semua instance. Jika penyimpanan cloud gagal, panel akan menampilkan error dan tidak mengklaim perubahan berhasil.
+>>>>>>> 539341e4703550588728e707591eb881fd2bb618
 
 ---
 
@@ -68,9 +75,16 @@ Pengujian mencakup:
 
 Ketika Anda siap mempublikasikan website ke internet:
 
+<<<<<<< HEAD
 ### 1. Siapkan Supabase
 1. Buka **SQL Editor** project Supabase Anda dan jalankan [`supabase/schema.sql`](./supabase/schema.sql).
 2. Tambahkan `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, dan `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ke `.env.local` serta Vercel.
+=======
+### 1. Siapkan Supabase Storage
+1. Buka dashboard project Supabase dan masuk ke menu **Storage**.
+2. Buat bucket private bernama `room-data`.
+3. Salin Project URL dan service role key dari pengaturan API.
+>>>>>>> 539341e4703550588728e707591eb881fd2bb618
 
 ### 2. Deploy ke Vercel
 1. Upload folder proyek ke GitHub / GitLab.
@@ -78,7 +92,16 @@ Ketika Anda siap mempublikasikan website ke internet:
 3. Tambahkan **Environment Variables** berikut di pengaturan Vercel:
    - `ADMIN_PASSWORD`: Password panel admin Anda.
    - `ADMIN_SESSION_SECRET`: Kunci acak rahasia.
+<<<<<<< HEAD
    - `SUPABASE_URL` dan `SUPABASE_SECRET_KEY`: Kredensial server Supabase.
    - `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Kredensial browser untuk Realtime.
    Setelah mengubah environment variable, lakukan redeploy agar konfigurasi aktif.
 4. Klik **Deploy**! Website dan panel admin langsung aktif dengan status kamar yang tersimpan aman di Supabase.
+=======
+   - `SUPABASE_URL`: Project URL Supabase.
+   - `SUPABASE_SERVICE_ROLE_KEY`: service role key, hanya untuk server.
+   - `SUPABASE_STORAGE_BUCKET`: `room-data` (opsional).
+
+   Jangan pernah menaruh service role key di variabel `NEXT_PUBLIC_*`. Setelah mengubah environment variable, lakukan redeploy agar konfigurasi aktif.
+4. Klik **Deploy**! Website dan panel admin langsung aktif dengan status kamar yang tersimpan aman di cloud.
+>>>>>>> 539341e4703550588728e707591eb881fd2bb618
