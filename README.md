@@ -90,6 +90,6 @@ node scripts/seed-cloud.mjs
    - `ADMIN_SESSION_SECRET`: Kunci acak rahasia.
    - `UPSTASH_REDIS_REST_URL`: URL dari Upstash.
    - `UPSTASH_REDIS_REST_TOKEN`: Token dari Upstash.
-   
+
    Pastikan nama dan nilainya sama persis dengan yang diberikan Upstash. Setelah mengubah environment variable, lakukan redeploy agar konfigurasi aktif.
 4. Klik **Deploy**! Website dan panel admin langsung aktif dengan status kamar yang tersimpan aman di cloud.
