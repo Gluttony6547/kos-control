@@ -31,6 +31,13 @@ export function isValidRooms(value: unknown): value is Room[] {
 const DATA_PATH = path.join(process.cwd(), "data", "rooms.json");
 const CLOUD_STORAGE_KEY = "deluxe_kost_rooms";
 
+export class RoomStorageError extends Error {
+  constructor(message: string, public readonly status?: number) {
+    super(message);
+    this.name = "RoomStorageError";
+  }
+}
+
 // Helper untuk membaca dari file lokal
 async function getLocalRooms(): Promise<RoomsData> {
   try {
@@ -94,7 +101,7 @@ async function getUpstashRooms(config: { url: string; token: string }): Promise<
 
 async function saveUpstashRooms(config: { url: string; token: string }, data: RoomsData): Promise<boolean> {
   try {
-    const res = await fetch(`${config.url}/set/${CLOUD_STORAGE_KEY}`, {
+    const res = await fetch(`${config.url}/set/${encodeURIComponent(CLOUD_STORAGE_KEY)}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.token}`,
@@ -102,7 +109,11 @@ async function saveUpstashRooms(config: { url: string; token: string }, data: Ro
       },
       body: JSON.stringify(JSON.stringify(data)),
     });
-    return res.ok;
+    if (!res.ok) {
+      console.error(`[Upstash Cloud] Gagal menyimpan data (HTTP ${res.status}).`);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("[Upstash Cloud] Error saving data:", err);
     return false;
@@ -141,10 +152,14 @@ export async function saveRooms(rooms: Room[]): Promise<RoomsData> {
     }
 
     if (process.env.VERCEL) {
-      throw new Error("Penyimpanan cloud kamar gagal.");
+      throw new RoomStorageError(
+        "Penyimpanan cloud kamar ditolak. Pastikan token Upstash memiliki akses tulis.",
+      );
     }
   } else if (process.env.VERCEL) {
-    throw new Error("Cloud storage belum dikonfigurasi.");
+    throw new RoomStorageError(
+      "Cloud storage belum dikonfigurasi. Isi URL REST API dan token Upstash di Vercel.",
+    );
   }
 
   // Simpan lokal

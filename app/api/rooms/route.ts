@@ -27,7 +27,12 @@ export async function PUT(request: Request) {
   } catch (error) {
     console.error("[Rooms API] Gagal menyimpan status kamar:", error);
     return NextResponse.json(
-      { error: "Status kamar belum tersimpan. Periksa konfigurasi cloud storage." },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Status kamar belum tersimpan. Periksa konfigurasi cloud storage.",
+      },
       { status: 503 }
     );
   }

@@ -88,8 +88,8 @@ node scripts/seed-cloud.mjs
 3. Tambahkan **Environment Variables** berikut di pengaturan Vercel:
    - `ADMIN_PASSWORD`: Password panel admin Anda.
    - `ADMIN_SESSION_SECRET`: Kunci acak rahasia.
-   - `UPSTASH_REDIS_REST_URL`: URL dari Upstash.
-   - `UPSTASH_REDIS_REST_TOKEN`: Token dari Upstash.
+   - `UPSTASH_REDIS_REST_URL`: URL **REST API** dari detail database Upstash (bukan URL halaman console).
+   - `UPSTASH_REDIS_REST_TOKEN`: Token REST API dengan akses tulis (jangan gunakan read-only token).
 
    Pastikan nama dan nilainya sama persis dengan yang diberikan Upstash. Setelah mengubah environment variable, lakukan redeploy agar konfigurasi aktif.
 4. Klik **Deploy**! Website dan panel admin langsung aktif dengan status kamar yang tersimpan aman di cloud.
