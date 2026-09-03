@@ -10,23 +10,18 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Jika sudah memiliki session yang valid, langsung alihkan ke dashboard
+  // Cek background: jika admin sudah login di sesi sebelumnya, arahkan ke dashboard
   useEffect(() => {
     let mounted = true;
     fetch("/api/auth", { cache: "no-store" })
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data) => {
         if (mounted && data.authenticated) {
           router.replace("/admin/dashboard");
-        } else if (mounted) {
-          setCheckingAuth(false);
         }
       })
-      .catch(() => {
-        if (mounted) setCheckingAuth(false);
-      });
+      .catch(() => undefined);
     return () => {
       mounted = false;
     };
@@ -53,7 +48,7 @@ export default function AdminLogin() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setError(data.error || (response.status === 401 ? "Password salah. Coba lagi." : "Login gagal. Coba lagi."));
+        setError(data.error || (response.status === 401 ? "Password tidak sesuai." : "Login gagal. Coba lagi."));
         return;
       }
 
@@ -64,17 +59,6 @@ export default function AdminLogin() {
     } finally {
       setLoading(false);
     }
-  }
-
-  if (checkingAuth) {
-    return (
-      <main className="admin-shell">
-        <div className="admin-card auth-loading-card">
-          <div className="auth-spinner" />
-          <p>Memeriksa sesi admin…</p>
-        </div>
-      </main>
-    );
   }
 
   return (
@@ -90,7 +74,7 @@ export default function AdminLogin() {
         <p className="eyebrow">DE LUXE KOST AMPEL</p>
         <h1>Masuk ke Panel</h1>
         <p className="login-subtitle">
-          Kelola ketersediaan kamar secara langsung untuk ditampilkan di website publik.
+          Kelola status ketersediaan kamar secara langsung untuk ditampilkan di website publik.
         </p>
 
         <label className="input-group-label">
@@ -98,7 +82,7 @@ export default function AdminLogin() {
           <div className="password-input-wrap">
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="Masukkan password"
+              placeholder="Masukkan password admin"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
