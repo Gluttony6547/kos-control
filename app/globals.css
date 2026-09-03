@@ -1065,8 +1065,10 @@ footer {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 40px 20px;
-  background: #eef3ee;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(68, 126, 93, 0.08), transparent 30%),
+    #eef3ee;
 }
 
 .admin-card {
@@ -1159,6 +1161,11 @@ footer {
 .password-input-wrap input:focus {
   outline: none;
   border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(45, 90, 65, 0.12);
+}
+
+.password-input-wrap input[aria-invalid="true"] {
+  border-color: var(--red);
 }
 
 .password-toggle-btn {
@@ -1173,6 +1180,16 @@ footer {
   padding: 4px;
   display: grid;
   place-items: center;
+}
+
+.password-toggle-btn:focus-visible,
+.button:focus-visible,
+.filter-btn:focus-visible,
+.toggle-switch:focus-visible,
+.logout-btn:focus-visible,
+.admin-brand:focus-visible {
+  outline: 3px solid rgba(68, 126, 93, 0.35);
+  outline-offset: 2px;
 }
 
 .password-toggle-btn:hover {

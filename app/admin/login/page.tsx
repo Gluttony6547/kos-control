@@ -81,6 +81,7 @@ export default function AdminLogin() {
           Password Admin
           <div className="password-input-wrap">
             <input
+              name="password"
               type={showPassword ? "text" : "password"}
               placeholder="Masukkan password admin"
               value={password}
@@ -89,6 +90,8 @@ export default function AdminLogin() {
                 if (error) setError("");
               }}
               autoFocus
+              autoComplete="current-password"
+              aria-invalid={Boolean(error)}
               required
               disabled={loading}
             />
@@ -126,7 +129,7 @@ export default function AdminLogin() {
           </div>
         )}
 
-        <button className="button button-dark login-btn" disabled={loading}>
+        <button type="submit" className="button button-dark login-btn" disabled={loading}>
           {loading ? (
             <>
               <span className="btn-spinner" />

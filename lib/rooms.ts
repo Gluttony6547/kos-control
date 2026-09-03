@@ -13,6 +13,21 @@ export type RoomsData = {
   rooms: Room[];
 };
 
+export function isValidRooms(value: unknown): value is Room[] {
+  if (!Array.isArray(value) || value.length !== 5) return false;
+
+  return value.every((room, index) => {
+    if (!room || typeof room !== "object") return false;
+    const candidate = room as Partial<Room>;
+    return (
+      candidate.id === index + 1 &&
+      candidate.name === `Kamar ${index + 1}` &&
+      (candidate.type === "Besar" || candidate.type === "Kecil") &&
+      (candidate.status === "kosong" || candidate.status === "penuh")
+    );
+  });
+}
+
 const DATA_PATH = path.join(process.cwd(), "data", "rooms.json");
 const CLOUD_STORAGE_KEY = "deluxe_kost_rooms";
 

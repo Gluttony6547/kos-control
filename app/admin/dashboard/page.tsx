@@ -117,6 +117,9 @@ export default function Dashboard() {
       }
 
       const updatedData: Payload = await response.json();
+      if (!updatedData || !Array.isArray(updatedData.rooms) || updatedData.rooms.length !== data.rooms.length) {
+        throw new Error("Respons data kamar tidak valid.");
+      }
       setData(updatedData);
       setOriginalData(updatedData);
       setToast({
