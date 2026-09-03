@@ -1,0 +1,35 @@
+{
+  "lastUpdated": "2026-09-03",
+  "rooms": [
+    {
+      "id": 1,
+      "name": "Kamar 1",
+      "type": "Besar",
+      "status": "penuh"
+    },
+    {
+      "id": 2,
+      "name": "Kamar 2",
+      "type": "Besar",
+      "status": "kosong"
+    },
+    {
+      "id": 3,
+      "name": "Kamar 3",
+      "type": "Besar",
+      "status": "penuh"
+    },
+    {
+      "id": 4,
+      "name": "Kamar 4",
+      "type": "Kecil",
+      "status": "kosong"
+    },
+    {
+      "id": 5,
+      "name": "Kamar 5",
+      "type": "Kecil",
+      "status": "kosong"
+    }
+  ]
+}
