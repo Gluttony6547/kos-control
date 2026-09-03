@@ -3,8 +3,8 @@
  * Ubah nomor di sini jika nomor pengelola berubah.
  * Format WA: angka internasional tanpa tanda + atau spasi (contoh: 6281234567890).
  */
-export const WHATSAPP_NUMBER = "6280000000000";
-export const WHATSAPP_DISPLAY = "+62 800-0000-0000";
+export const WHATSAPP_NUMBER = "6281233959518";
+export const WHATSAPP_DISPLAY = "0812-3395-9518";
 
 export function getWhatsAppUrl(message?: string): string {
   if (!message) {

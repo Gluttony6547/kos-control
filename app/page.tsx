@@ -177,14 +177,35 @@ export default function Home() {
   const [selectedKecilPhoto, setSelectedKecilPhoto] = useState(1);
 
   useEffect(() => {
-    fetch("/api/rooms", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((roomsData) => {
-        if (roomsData && Array.isArray(roomsData.rooms)) {
+    let active = true;
+
+    async function refreshRooms() {
+      try {
+        const response = await fetch(`/api/rooms?refresh=${Date.now()}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
+        if (!response.ok) throw new Error("Gagal memuat status kamar.");
+        const roomsData = await response.json();
+        if (active && roomsData && Array.isArray(roomsData.rooms)) {
           setData(roomsData);
         }
-      })
-      .catch(() => undefined);
+      } catch {
+        // Keep the initial content visible when the API is temporarily unavailable.
+      }
+    }
+
+    refreshRooms();
+    const interval = window.setInterval(refreshRooms, 30_000);
+    window.addEventListener("focus", refreshRooms);
+    document.addEventListener("visibilitychange", refreshRooms);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshRooms);
+      document.removeEventListener("visibilitychange", refreshRooms);
+    };
   }, []);
 
   const formattedDate = new Intl.DateTimeFormat("id-ID", {

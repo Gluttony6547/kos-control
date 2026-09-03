@@ -26,6 +26,7 @@ Website profil hunian dan panel manajemen ketersediaan kamar untuk **De Luxe Kos
 3. **Cloud Storage Adapter (Siap Publish)**:
    - Mendukung penyimpanan **Cloud Database Upstash Redis / Vercel KV** (100% gratis tanpa kartu kredit).
    - Otomatis menggunakan Cloud jika variabel `.env` diisi, dan tetap menggunakan file lokal `data/rooms.json` saat dijalankan offline/lokal.
+   - Pada Vercel, konfigurasi cloud wajib diisi agar perubahan status kamar persisten di semua instance. Jika penyimpanan cloud gagal, panel akan menampilkan error dan tidak mengklaim perubahan berhasil.
 
 ---
 
@@ -89,4 +90,6 @@ node scripts/seed-cloud.mjs
    - `ADMIN_SESSION_SECRET`: Kunci acak rahasia.
    - `UPSTASH_REDIS_REST_URL`: URL dari Upstash.
    - `UPSTASH_REDIS_REST_TOKEN`: Token dari Upstash.
+   
+   Pastikan nama dan nilainya sama persis dengan yang diberikan Upstash. Setelah mengubah environment variable, lakukan redeploy agar konfigurasi aktif.
 4. Klik **Deploy**! Website dan panel admin langsung aktif dengan status kamar yang tersimpan aman di cloud.

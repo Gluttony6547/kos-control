@@ -139,6 +139,12 @@ export async function saveRooms(rooms: Room[]): Promise<RoomsData> {
       await saveLocalRooms(data);
       return data;
     }
+
+    if (process.env.VERCEL) {
+      throw new Error("Penyimpanan cloud kamar gagal.");
+    }
+  } else if (process.env.VERCEL) {
+    throw new Error("Cloud storage belum dikonfigurasi.");
   }
 
   // Simpan lokal

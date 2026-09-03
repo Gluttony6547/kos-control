@@ -1073,10 +1073,22 @@ footer {
 
 .admin-card {
   width: min(100%, 540px);
+  min-width: 0;
   padding: 44px;
   background: #fff;
   border-radius: 12px;
   box-shadow: var(--shadow-md);
+}
+
+.admin-card h1 {
+  margin: 0 0 8px;
+  font-size: clamp(28px, 5vw, 36px);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.admin-card .eyebrow {
+  color: var(--green);
 }
 
 .auth-loading-card {
@@ -1116,6 +1128,8 @@ footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 32px;
 }
 
@@ -1150,6 +1164,7 @@ footer {
 }
 
 .password-input-wrap input {
+  min-width: 0;
   width: 100%;
   padding: 13px 44px 13px 14px;
   border: 1.5px solid var(--line);
@@ -1755,6 +1770,12 @@ footer {
   }
   .admin-card {
     padding: 30px 20px;
+  }
+  .login-top-bar {
+    align-items: flex-start;
+  }
+  .badge-admin {
+    margin-left: auto;
   }
   .denah-banner {
     flex-direction: column;

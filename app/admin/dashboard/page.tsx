@@ -113,7 +113,8 @@ export default function Dashboard() {
           router.replace("/admin/login");
           return;
         }
-        throw new Error("Gagal menyimpan perubahan.");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Gagal menyimpan perubahan.");
       }
 
       const updatedData: Payload = await response.json();
@@ -127,10 +128,10 @@ export default function Dashboard() {
         message: "Perubahan berhasil disimpan dan langsung tampil di website!",
       });
       setTimeout(() => setToast(null), 4000);
-    } catch {
+    } catch (error) {
       setToast({
         type: "error",
-        message: "Gagal menyimpan perubahan. Coba beberapa saat lagi.",
+        message: error instanceof Error ? error.message : "Gagal menyimpan perubahan. Coba beberapa saat lagi.",
       });
     } finally {
       setSaving(false);

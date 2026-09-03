@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
 import { getRooms, isValidRooms, saveRooms, type Room } from "@/lib/rooms";
 export const dynamic = "force-dynamic";
-export async function GET() { return NextResponse.json(await getRooms(), { headers: { "Cache-Control": "no-store" } }); }
+export async function GET() {
+  return NextResponse.json(await getRooms(), {
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+  });
+}
 export async function PUT(request: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   let body: { rooms?: Room[] };
@@ -16,5 +20,15 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Data kamar tidak valid" }, { status: 400 });
   }
 
-  return NextResponse.json(await saveRooms(body.rooms));
+  try {
+    return NextResponse.json(await saveRooms(body.rooms), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    console.error("[Rooms API] Gagal menyimpan status kamar:", error);
+    return NextResponse.json(
+      { error: "Status kamar belum tersimpan. Periksa konfigurasi cloud storage." },
+      { status: 503 }
+    );
+  }
 }
